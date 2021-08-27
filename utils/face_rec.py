@@ -11,8 +11,14 @@ def compare_faces(image_1, image_2):
 	first_image_enc = fr.face_encodings(first_image)
 	second_image_enc = fr.face_encodings(second_image)
 
-	if not len(first_image_enc) and len(second_image_enc):
+	if not (first_image_enc and second_image_enc):
 		return False
+
+	first_image_enc = first_image_enc[0]
+	second_image_enc = second_image_enc[0]
 
 	results = fr.compare_faces([first_image_enc], second_image_enc)
 	return results[0]
+
+
+# print(compare_faces('../images/myself5.jpg', '../images/myself2.jpeg'))
