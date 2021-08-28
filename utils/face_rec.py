@@ -19,6 +19,3 @@ def compare_faces(image_1, image_2):
 
 	results = fr.compare_faces([first_image_enc], second_image_enc)
 	return results[0]
-
-
-# print(compare_faces('../images/myself5.jpg', '../images/myself2.jpeg'))
