@@ -16,16 +16,19 @@ import json
 
 load_dotenv()
 
+# Configure Cloudinary
 cloudinary.config(
 	cloud_name=os.getenv('CLOUDINARY_CLOUD_NAME'),
 	api_key=os.getenv('CLOUDINARY_API_KEY'),
 	api_secret=os.getenv('CLOUDINARY_API_SECRET')
 )
 
+# Initialize Flask App
 api = Api(title='Face Recognition API', description='Recognizes faces', doc='/docs/')
 app = Flask(__name__)
 api.init_app(app)
 
+# Connect to MongoDB
 mongo_client = PyMongo(app, uri=os.getenv('MONGO_URI'))
 db = mongo_client.db
 
@@ -33,14 +36,6 @@ db = mongo_client.db
 def parse_json(data):
 	"""Parses Json Data from mongo"""
 	return json.loads(json_util.dumps(data))
-
-
-@api.route('/hello')
-class HelloWorld(Resource):
-	"""Hello world"""
-	def get(self):
-		"""Get Hello World"""
-		return {'hello': 'world'}
 
 
 create_student_parser = api.parser()
@@ -60,15 +55,19 @@ class CreateStudent(Resource):
 		"""Creates Student"""
 		args = create_student_parser.parse_args()
 		payload = request.form
+
+		# Upload Image to Cloudinary
+		# Save Cloudinary Image Url to DB
 		uploaded_file = args['image']
 		cloudinary_response = cloudinary.uploader.upload(uploaded_file)
+
+		# Create Student Data
 		data = {
 			'first_name': payload.get('first_name'),
 			'matric_number': payload.get('matric_number'),
 			'surname': payload.get('surname'),
 			'image_url': cloudinary_response.get('url')
 		}
-		print(data)
 		db.students.insert_one(data)
 		return {'message': 'success'}, 201
 
@@ -94,7 +93,8 @@ class CompareFaces(Resource):
 		"""Compares faces"""
 		args = compare_parser.parse_args()
 		payload = request.form
-		uploaded_file = args['image']
+
+		# Fetch Student by details
 		data = {
 			'surname': payload.get('surname'),
 			'matric_number': payload.get('matric_number')
@@ -104,12 +104,21 @@ class CompareFaces(Resource):
 		if not student:
 			return {'message': 'Student not found'}
 
+		# Download Student Image
+
 		student_image_url = student.get('image_url')
 		student_image_file = download_image(student_image_url)
+
+		# Compare uploaded image to student image
+		uploaded_file = args['image']
 		matches = compare_faces(uploaded_file, student_image_file)
+
+		# Delete Downloaded Image to free up space
 		os.remove(student_image_file)
+
 		response = {'matches': bool(matches)}
 
+		# If Face matches, add student data to response
 		if bool(matches):
 			response.update(parse_json(student))
 
