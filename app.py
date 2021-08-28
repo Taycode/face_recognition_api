@@ -1,7 +1,7 @@
 """Flask App"""
 import os
 from flask import Flask, request
-from flask_restx import Api, Resource, fields, reqparse
+from flask_restx import Api, Resource
 from werkzeug.datastructures import FileStorage
 from utils.face_rec import compare_faces
 from utils.download_image import download_image
@@ -26,7 +26,7 @@ api = Api(title='Face Recognition API', description='Recognizes faces', doc='/do
 app = Flask(__name__)
 api.init_app(app)
 
-mongo_client = PyMongo(app, uri='mongodb://localhost:27017/face_rec')
+mongo_client = PyMongo(app, uri=os.getenv('MONGO_URI'))
 db = mongo_client.db
 
 
