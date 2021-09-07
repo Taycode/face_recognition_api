@@ -1,6 +1,7 @@
 """Flask App"""
 import os
 from flask import Flask, request
+from flask_cors import CORS
 from flask_restx import Api, Resource
 from werkzeug.datastructures import FileStorage
 from utils.face_rec import compare_faces
@@ -27,6 +28,7 @@ cloudinary.config(
 api = Api(title='Face Recognition API', description='Recognizes faces', doc='/docs/')
 app = Flask(__name__)
 api.init_app(app)
+CORS(app)
 
 # Connect to MongoDB
 mongo_client = PyMongo(app, uri=os.getenv('MONGO_URI'))
