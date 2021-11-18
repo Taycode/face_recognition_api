@@ -64,10 +64,10 @@ class CreateStudent(Resource):
 		# Save Cloudinary Image Url to DB
 		uploaded_file = args['image']
 
+		cloudinary_response = cloudinary.uploader.upload(uploaded_file)
+
 		if not image_isvalid(uploaded_file):
 			return {'message': 'Image is not good enough, can not identify face'}, 400
-
-		cloudinary_response = cloudinary.uploader.upload(uploaded_file)
 
 		# Create Student Data
 		data = {
