@@ -1,10 +1,12 @@
 """Flask App"""
 import os
+
+import PIL.Image
 from flask import Flask, request
 from flask_cors import CORS
 from flask_restx import Api, Resource
 from werkzeug.datastructures import FileStorage
-from utils.face_rec import compare_faces
+from utils.face_rec import compare_faces, image_isvalid
 from utils.download_image import download_image
 from flask_pymongo import PyMongo
 from dotenv import load_dotenv
@@ -61,6 +63,10 @@ class CreateStudent(Resource):
 		# Upload Image to Cloudinary
 		# Save Cloudinary Image Url to DB
 		uploaded_file = args['image']
+
+		if not image_isvalid(uploaded_file):
+			return {'message': 'Image is not good enough, can not identify face'}, 400
+
 		cloudinary_response = cloudinary.uploader.upload(uploaded_file)
 
 		# Create Student Data
@@ -68,7 +74,7 @@ class CreateStudent(Resource):
 			'first_name': payload.get('first_name'),
 			'matric_number': payload.get('matric_number'),
 			'surname': payload.get('surname'),
-			'image_url': cloudinary_response.get('url')
+			'image_url': [cloudinary_response.get('url')]
 		}
 		db.students.insert_one(data)
 		return {'message': 'success'}, 201
@@ -78,6 +84,42 @@ class CreateStudent(Resource):
 		"""Fetches students"""
 		students = db.students.find()
 		return parse_json(students), 200
+
+
+add_image_parser = api.parser()
+add_image_parser.add_argument('image', location='files', type=FileStorage, required=True)
+add_image_parser.add_argument('matric_number', location='form')
+
+
+@api.route('/student/update')
+class AddImageForStudent(Resource):
+	"""Adds Image to Student profile"""
+
+	@staticmethod
+	@api.expect(add_image_parser)
+	def patch():
+		"""Adds Image"""
+		args = add_image_parser.parse_args()
+		payload = request.form
+		matric_number = payload.get('matric_number')
+		student = db.students.find_one({
+			'matric_number': matric_number
+		})
+		if not student:
+			return {'message': 'Student not found'}, 404
+
+		uploaded_image = args['image']
+
+		cloudinary_response = cloudinary.uploader.upload(uploaded_image)
+
+		if not image_isvalid(uploaded_image):
+			return {'message': 'Image is not good enough, can not identify face'}, 400
+
+		db.students.update_one(
+			{'matric_number': matric_number},
+			{'$push': {'image_url': cloudinary_response.get('url')}}
+		)
+		return {'message': 'success'}, 200
 
 
 compare_parser = api.parser()
@@ -109,14 +151,19 @@ class CompareFaces(Resource):
 		# Download Student Image
 
 		student_image_url = student.get('image_url')
-		student_image_file = download_image(student_image_url)
+		student_image_files = list(map(download_image, student_image_url))
 
 		# Compare uploaded image to student image
 		uploaded_file = args['image']
-		matches = compare_faces(uploaded_file, student_image_file)
+
+		if not image_isvalid(uploaded_file):
+			return {'message': 'Image is not good enough, can not identify face'}, 400
+
+		matches = compare_faces(uploaded_file, student_image_files)
 
 		# Delete Downloaded Image to free up space
-		os.remove(student_image_file)
+		for _ in student_image_files:
+			os.remove(_)
 
 		response = {'matches': bool(matches)}
 
